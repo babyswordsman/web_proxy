@@ -21,3 +21,5 @@
 go.work
 proxy_server
 bin/scp.sh
+bin/start_local.sh
+logs/
