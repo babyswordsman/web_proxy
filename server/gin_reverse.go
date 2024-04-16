@@ -27,17 +27,29 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 }
 func DealHttpGet(ctx *gin.Context, schema string, host string) {
 	// step 1: resolve proxy address, change scheme and host in requets
-	req := ctx.Request
+
+	oldreq := ctx.Request
+
+	req := http.Request{}
+
+	url := *oldreq.URL
+	req.URL = &url
 
 	req.URL.Scheme = schema
 	req.URL.Host = host
+	req.Method = oldreq.Method
+	v, ok := oldreq.Header["Cookie"]
+	req.Header = make(http.Header, 0)
+	if ok {
+		req.Header["Cookie"] = v
+	}
 
 	// step 2: use http.Transport to do request to real server.
 	transport := http.DefaultTransport
+	//不要打印，https的请求中有机密信息
+	//log.Println(req.URL.String())
 
-	log.Println(req.URL.String())
-
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(&req)
 	if err != nil {
 		log.Printf("error in roundtrip: %v", err)
 		ctx.String(http.StatusInternalServerError, "error")
