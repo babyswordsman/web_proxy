@@ -168,7 +168,7 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 				//避免阻塞时tick触发丢失消息，需要循环重试
 				select {
 				case backendListener <- WSMessage{MsgType: msgType, Message: message}:
-					log.Printf("append backend listener:%s", message)
+					log.Printf("append backend listener:%s", string(message))
 					//已经写入就等待下一条消息
 					break retryWrite
 				case curTime := <-tick.C:
@@ -189,6 +189,7 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 	go func() {
 		//前端不收消息了，需要同时保证frontStop==1
 		for wsMessage := range frontListener {
+
 			err := c.WriteMessage(wsMessage.MsgType, wsMessage.Message)
 			if err != nil {
 				atomic.StoreInt32(backendStop, 1)
