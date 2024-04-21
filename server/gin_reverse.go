@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,6 +21,8 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 		DealGoogleSearchApi(ctx)
 	} else if path == "/chat/stream" {
 		DealWebsocket(ctx)
+	} else if path == "openserp/search" {
+		DealOpenSerpSearchApi(ctx)
 	} else {
 		DealHttpGet(ctx, "http", GetBackend())
 	}
@@ -77,6 +80,22 @@ func DealGoogleSearchApi(ctx *gin.Context) {
 
 	DealHttpGet(ctx, "https", "www.googleapis.com")
 
+}
+
+func DealOpenSerpSearchApi(ctx *gin.Context) {
+	log.Println("DealOpenSerpSearchApi:", ctx.Request.URL.String())
+	engine := ctx.Query("engine")
+	text := ctx.Query("text")
+	get_url := fmt.Sprintf("http://127.0.0.1:7000/%s/search?lang=cn&text=%s", engine, url.PathEscape(text))
+	log.Printf("%s,text:%s", get_url, text)
+	resp, err := http.Get(get_url)
+	if err != nil {
+		log.Printf("%s,err:%s", get_url, err.Error())
+		ctx.JSON(http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	bufio.NewReader(resp.Body).WriteTo(ctx.Writer)
 }
 
 var upgrader = websocket.Upgrader{
