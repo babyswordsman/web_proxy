@@ -21,7 +21,7 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 		DealGoogleSearchApi(ctx)
 	} else if path == "/chat/stream" {
 		DealWebsocket(ctx)
-	} else if path == "openserp/search" {
+	} else if path == "/openserp/search" {
 		DealOpenSerpSearchApi(ctx)
 	} else {
 		DealHttpGet(ctx, "http", GetBackend())
