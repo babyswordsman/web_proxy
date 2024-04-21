@@ -132,7 +132,7 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 
 	c, resp, err := websocket.DefaultDialer.Dial(u.String(), header)
 	if err != nil {
-		log.Println("dial:", err)
+		log.Println("dial backend:", u.String(), ",err:", err)
 
 		return
 	}
@@ -152,11 +152,11 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 		for atomic.LoadInt32(backendStop) == 0 {
 			msgType, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("read backend:", err)
+				log.Println("backend recv err:", err)
 				atomic.StoreInt32(backendStop, 1)
 				break
 			}
-			log.Printf("recv:%s", message)
+			log.Printf("backend recv:%s", message)
 			if atomic.LoadInt32(frontStop) >= 1 {
 				//前端故障，后端可以提前结束了
 				log.Print("frontStop:", time.Now().Format("2016-01-02 15:04:05"))
@@ -168,9 +168,11 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 				//避免阻塞时tick触发丢失消息，需要循环重试
 				select {
 				case backendListener <- WSMessage{MsgType: msgType, Message: message}:
+					log.Printf("append backend listener:%s", message)
 					//已经写入就等待下一条消息
 					break retryWrite
 				case curTime := <-tick.C:
+					log.Printf("%s maybe backend listener block,backendStop:%d", curTime.Format("2016-01-02 15:04:05"), atomic.LoadInt32(backendStop))
 					if atomic.LoadInt32(frontStop) >= 1 {
 						//前端关闭就退出
 						log.Print("frontStop:", curTime.Format("2016-01-02 15:04:05"))
@@ -181,7 +183,7 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 			}
 
 		}
-
+		log.Printf("%s recv backend exit,backendStop:%d", time.Now().Format("2016-01-02 15:04:05"), atomic.LoadInt32(backendStop))
 	}()
 
 	go func() {
@@ -194,6 +196,7 @@ func connectWSBackend(ctx *gin.Context, backend string, path string, backendList
 				return
 			}
 		}
+		log.Printf("%s front listener exit,backendStop:%d", time.Now().Format("2016-01-02 15:04:05"), atomic.LoadInt32(backendStop))
 	}()
 
 	tick := time.NewTicker(time.Millisecond * 100)
@@ -235,6 +238,7 @@ func DealWebsocket(ctx *gin.Context) {
 	go func() {
 		//后端退出会关闭backendListener，没有消息了才能关闭前端
 		for wsMessage := range backendListener {
+			log.Print("backend listener:", wsMessage.Message)
 			err := c.WriteMessage(wsMessage.MsgType, wsMessage.Message)
 			if err != nil {
 				//前端异常了
@@ -245,6 +249,7 @@ func DealWebsocket(ctx *gin.Context) {
 		}
 		//没有更多消息给前端了
 		atomic.StoreInt32(&frontStop, 1)
+		log.Print("backend listener exit")
 	}()
 	go func() {
 		defer func() {
@@ -260,10 +265,10 @@ func DealWebsocket(ctx *gin.Context) {
 		for {
 			mt, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("read front:", err)
+				log.Println("read front err:", err)
 				break
 			}
-			log.Printf("recv:%s", message)
+			log.Printf("front recv:%s", message)
 			if atomic.LoadInt32(&backendStop) >= 1 {
 				//后端退出，前端不用再读，可以退出了，但是可能还有消息可以发送个前端
 				log.Print("backendStop:", time.Now().Format("2016-01-02 15:04:05"))
@@ -271,14 +276,17 @@ func DealWebsocket(ctx *gin.Context) {
 			}
 
 		retryWrite:
+
 			for atomic.LoadInt32(&backendStop) == 0 {
 				//避免阻塞时tick触发丢失消息，需要循环重试
 				//后端已经停止，不需要后端处理了
 				select {
 				case frontListener <- WSMessage{MsgType: mt, Message: message}:
+					log.Printf("send to front listener:%s", message)
 					//已经写入就等待下一条消息
 					break retryWrite
 				case curTime := <-tick.C:
+					log.Printf("maybe front listener block,cur msg:%s,backendStop: %d", message, atomic.LoadInt32(&backendStop))
 					if atomic.LoadInt32(&backendStop) >= 1 {
 						//前端关闭就退出
 						log.Print("backendStop:", curTime.Format("2016-01-02 15:04:05"))
@@ -287,7 +295,7 @@ func DealWebsocket(ctx *gin.Context) {
 					}
 				}
 			}
-
+			log.Printf("backendStop:%d", atomic.LoadInt32(&backendStop))
 		}
 	}()
 
