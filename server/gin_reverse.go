@@ -305,11 +305,17 @@ func DealWebsocket(ctx *gin.Context) {
 	for curTime := range tick.C {
 		if atomic.LoadInt32(&frontStop) >= 1 {
 			//前端关闭就退出
-			log.Print("frontStop:", curTime.Format("2016-01-02 15:04:05"))
+			log.Print("front Stop:", curTime.Format("2016-01-02 15:04:05"))
+			break
+		}
+
+		if atomic.LoadInt32(&backendStop) >= 1 {
+			//后端关闭就退出
+			log.Print("backend Stop:", curTime.Format("2016-01-02 15:04:05"))
 			break
 		}
 	}
-	log.Println("deal websocket end")
+	log.Println("deal websocket end", time.Now().Format("2016-01-02 15:04:05"))
 }
 func StartGinProxy() {
 	r := gin.Default()
