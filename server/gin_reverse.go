@@ -28,6 +28,10 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 	}
 
 }
+
+func DefaultDealHttpPost(ctx *gin.Context) {
+	DealHttpGet(ctx, "http", GetBackend())
+}
 func DealHttpGet(ctx *gin.Context, schema string, host string) {
 	// step 1: resolve proxy address, change scheme and host in requets
 
@@ -324,6 +328,7 @@ func StartGinProxy() {
 	//r.GET("/chat/stream", DealWebsocket)
 	//r.GET("/", DefaultDealHttpGet)
 	r.GET("/*path", DefaultDealHttpGet)
+	r.POST("/*path", DefaultDealHttpPost)
 
 	if err := r.Run(GetProxyAddr()); err != nil {
 		log.Printf("Error: %v", err)
