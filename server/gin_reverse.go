@@ -30,7 +30,33 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 }
 
 func DefaultDealHttpPost(ctx *gin.Context) {
-	DealHttpGet(ctx, "http", GetBackend())
+	// step 1: resolve proxy address, change scheme and host in requets
+
+	oldreq := ctx.Request
+	req := oldreq.Clone(ctx)
+	req.URL.Scheme = "http"
+	req.URL.Host = GetBackend()
+
+	// step 2: use http.Transport to do request to real server.
+	transport := http.DefaultTransport
+	//不要打印，https的请求中有机密信息
+	//log.Println(req.URL.String())
+
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		log.Printf("error in roundtrip: %v", err)
+		ctx.String(http.StatusInternalServerError, "error")
+		return
+	}
+
+	// step 3: return real server response to upstream.
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			ctx.Header(k, v)
+		}
+	}
+	defer resp.Body.Close()
+	bufio.NewReader(resp.Body).WriteTo(ctx.Writer)
 }
 func DealHttpGet(ctx *gin.Context, schema string, host string) {
 	// step 1: resolve proxy address, change scheme and host in requets
