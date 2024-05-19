@@ -35,10 +35,12 @@ func DefaultDealHttpPost(ctx *gin.Context) {
 	oldreq := ctx.Request
 	req := oldreq.Clone(ctx)
 
-	delete(req.Header, "Host")
-	delete(req.Header, "Referer")
-	delete(req.Header, "Origin")
-	delete(req.Header, "User-Agent")
+	for k := range req.Header {
+		if k != "Cookie" {
+			delete(req.Header, k)
+		}
+	}
+
 	for k, vv := range req.Header {
 		for _, v := range vv {
 			log.Println(k, ":", v)
