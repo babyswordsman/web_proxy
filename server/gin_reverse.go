@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"sync/atomic"
@@ -30,25 +33,70 @@ func DefaultDealHttpGet(ctx *gin.Context) {
 }
 
 func DefaultDealHttpPost(ctx *gin.Context) {
+	path := ctx.Request.URL.Path
+	log.Println("DefaultDealHttpPost:", path, ",url:", ctx.Request.URL.String())
+	if path == "/rag/upload" {
+		dealUploadFile(ctx)
+	} else {
+		DealHttpGet(ctx, "http", GetBackend())
+	}
+}
+
+func dealUploadFile(ctx *gin.Context) {
 	// step 1: resolve proxy address, change scheme and host in requets
 
-	oldreq := ctx.Request
-	req := oldreq.Clone(ctx)
+	buf := &bytes.Buffer{}
+	dstWriter := multipart.NewWriter(buf)
 
-	for k := range req.Header {
-		if k != "Cookie" {
-			delete(req.Header, k)
-		}
+	partForm, err := ctx.MultipartForm()
+
+	if err != nil {
+		log.Printf("ctx.MultipartForm err:%s", err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": "上传失败:" + err.Error(),
+		})
+		return
 	}
 
-	for k, vv := range req.Header {
-		for _, v := range vv {
-			log.Println(k, ":", v)
-		}
-	}
+	for fieldName, files := range partForm.File {
+		for _, file := range files {
+			fileWriter, err := dstWriter.CreateFormFile(fieldName, file.Filename)
+			if err != nil {
+				log.Printf("create form file err: %s", err.Error())
+				continue
+			}
+			src, err := file.Open()
+			if err != nil {
+				log.Printf("open MultipartForm.file err:%s", err.Error())
+				continue
+			}
+			defer src.Close()
+			len, err := io.Copy(fileWriter, src)
+			if err != nil {
+				log.Printf("upload file:%s len:%d err:%s", file.Filename, len, err.Error())
+			} else {
+				log.Printf("upload file:%s len:%d ", file.Filename, len)
+			}
 
-	req.URL.Scheme = "http"
-	req.URL.Host = GetBackend()
+		}
+
+	}
+	dstWriter.Close()
+
+	oldUrl := ctx.Request.URL
+	oldUrl.Scheme = "http"
+	oldUrl.Host = GetBackend()
+	req, err := http.NewRequest("POST", oldUrl.String(), buf)
+	if err != nil {
+		log.Printf("request %s err:%s", oldUrl.String(), err.Error())
+	}
+	req.Header.Set("Content-Type", dstWriter.FormDataContentType())
+	v, ok := ctx.Request.Header["Cookie"]
+	req.Header = make(http.Header, 0)
+	if ok {
+		req.Header["Cookie"] = v
+	}
 
 	// step 2: use http.Transport to do request to real server.
 	transport := http.DefaultTransport

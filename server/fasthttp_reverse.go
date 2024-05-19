@@ -40,22 +40,22 @@ func ProxyHandler(ctx *fasthttp.RequestCtx) {
 			args.Add("key", google_key)
 			url := "https://www.googleapis.com/customsearch/v1?" + args.String()
 			code, buf, err := fasthttp.Get(nil, url)
-			log.Printf("url:", url)
+			log.Println("url:", url)
 			if err != nil {
 				ctx.Response.SetStatusCode(http.StatusInternalServerError)
 				len, err := ctx.Write([]byte(err.Error()))
 				if err != nil {
-					log.Printf(err.Error())
+					log.Println(err.Error())
 				} else {
-					log.Printf("response len:", len)
+					log.Println("response len:", len)
 				}
 			} else {
 				ctx.Response.SetStatusCode(code)
 				len, err := ctx.Write(buf)
 				if err != nil {
-					log.Printf(err.Error())
+					log.Println(err.Error())
 				} else {
-					log.Printf("response len:", len)
+					log.Println("response len:", len)
 				}
 			}
 
