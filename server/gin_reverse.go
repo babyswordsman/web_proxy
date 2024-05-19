@@ -72,6 +72,7 @@ func dealUploadFile(ctx *gin.Context) {
 				continue
 			}
 			defer src.Close()
+
 			len, err := io.Copy(fileWriter, src)
 			if err != nil {
 				log.Printf("upload file:%s len:%d err:%s", file.Filename, len, err.Error())
@@ -82,6 +83,7 @@ func dealUploadFile(ctx *gin.Context) {
 		}
 
 	}
+
 	dstWriter.Close()
 
 	oldUrl := ctx.Request.URL
@@ -97,7 +99,7 @@ func dealUploadFile(ctx *gin.Context) {
 	if ok {
 		req.Header["Cookie"] = v
 	}
-	contentType := ctx.Request.Header.Get("Content-Type")
+	contentType := dstWriter.FormDataContentType()
 	req.Header.Set("Content-Type", contentType)
 	log.Println("content-type:", contentType)
 
