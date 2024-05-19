@@ -91,7 +91,9 @@ func dealUploadFile(ctx *gin.Context) {
 	if err != nil {
 		log.Printf("request %s err:%s", oldUrl.String(), err.Error())
 	}
-	req.Header.Set("Content-Type", dstWriter.FormDataContentType())
+	contentType := ctx.Request.Header.Get("Content-Type")
+	req.Header.Set("Content-Type", contentType)
+	log.Println("content-type:", contentType)
 	v, ok := ctx.Request.Header["Cookie"]
 	req.Header = make(http.Header, 0)
 	if ok {
