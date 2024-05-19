@@ -91,14 +91,15 @@ func dealUploadFile(ctx *gin.Context) {
 	if err != nil {
 		log.Printf("request %s err:%s", oldUrl.String(), err.Error())
 	}
-	contentType := ctx.Request.Header.Get("Content-Type")
-	req.Header.Set("Content-Type", contentType)
-	log.Println("content-type:", contentType)
+
 	v, ok := ctx.Request.Header["Cookie"]
 	req.Header = make(http.Header, 0)
 	if ok {
 		req.Header["Cookie"] = v
 	}
+	contentType := ctx.Request.Header.Get("Content-Type")
+	req.Header.Set("Content-Type", contentType)
+	log.Println("content-type:", contentType)
 
 	// step 2: use http.Transport to do request to real server.
 	transport := http.DefaultTransport
