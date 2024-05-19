@@ -34,6 +34,11 @@ func DefaultDealHttpPost(ctx *gin.Context) {
 
 	oldreq := ctx.Request
 	req := oldreq.Clone(ctx)
+	for k, vv := range req.Header {
+		for _, v := range vv {
+			log.Println(k, ":", v)
+		}
+	}
 	req.URL.Scheme = "http"
 	req.URL.Host = GetBackend()
 
